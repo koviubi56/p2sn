@@ -1,5 +1,6 @@
 # p2sn
-P2SN is a ***P***eer to ***p***eer, encrypted ***s***ocket ***n***etwork written in python.
+
+P2SN is a **_P_**eer to **_p_**eer, encrypted **_s_**ocket **_n_**etwork written in python.
 P2SN uses asymmetric/public key encription ([RSA](https://pypi.org/project/rsa/)) for all\* communication between the two peers.
 P2SN uses Base64 (with the '+' and '/' characters) to encode and decode everything\*\*.
 
@@ -8,7 +9,9 @@ P2SN uses Base64 (with the '+' and '/' characters) to encode and decode everythi
 \*\*: Everything, except PUBKEY, KEYERROR, and NULL
 
 ## How does it work
+
 ### Key exchange
+
 ```text
 SERVER                     CLIENT
   ┌─What's your public key?─┘
@@ -20,10 +23,10 @@ SERVER                     CLIENT
                           Done!
 ```
 
-*b"..."* means a bytes string.
-*\x04* marks the end of the message, [ASCII code 4](https://theasciicode.com.ar/ascii-control-characters/eot-end-of-transmission-diamonds-card-suit-ascii-code-4.html).
-*[KEYCHECK]* is simply used for checking if the peer received the right key correctly. The bytes b"P2SN:KEYCHECK" are encrypted.
-*[ERRORKEY]* is b"P2SN:ERRORKEY"
+_b"..."_ means a bytes string.
+_\x04_ marks the end of the message, [ASCII code 4](https://theasciicode.com.ar/ascii-control-characters/eot-end-of-transmission-diamonds-card-suit-ascii-code-4.html).
+_[KEYCHECK]_ is simply used for checking if the peer received the right key correctly. The bytes b"P2SN:KEYCHECK" are encrypted.
+_[ERRORKEY]_ is b"P2SN:ERRORKEY"
 
 The client and the server must have a public, and a private RSA key. Minimum recommended keysize: 1024 bits.
 
