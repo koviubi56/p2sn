@@ -39,7 +39,7 @@ The client and the server must have a public, and a private RSA key. Minimum rec
 
 ### Communicating
 
-The client must be initialized. The client is initialized is its connected to the server, and the key exchange successfully happened (see above).
+The client must be initialized. The client is initialized if its connected to the server, and the key exchange successfully happened (see above).
 
 - Client sends message encrypted with the server's public key, encoded with Base64 + b"\x04"
 - Server replies with message encrypted with the client's public key, encoded with Base64 + b"\x04"
