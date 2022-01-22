@@ -52,13 +52,24 @@ USERKEYPAIR = namedtuple("USERKEYPAIR", "public private")
 
 
 class Request:
+    """A Request."""
+
     class Type(Enum):
+        """Types of requests."""
+
         MSG = auto()
         PUBKEY = auto()
         KEYCHECK = auto()
         NULL = auto()
 
     def __init__(self, msg: bytes, privkey: rsa.PrivateKey) -> None:
+        """
+        Make a new request object.
+
+        Args:
+            msg (bytes): Message
+            privkey (rsa.PrivateKey): Private key. Used for decrypting.
+        """
         print(f"  [DEBUG] Got bytes: {msg!r}")
         self._msg = msg
         self.type = (
@@ -92,10 +103,18 @@ class Request:
 
 
 class KeyedClass(ABC):
+    """ABC for classes that use/need a public and a private key."""
+
     min_nbits: int = 1024
 
     @property
     def _keyed(self) -> bool:
+        """
+        Does the object have both keys?
+
+        Returns:
+            bool
+        """
         return bool(getattr(self, "pubkey", None)) and bool(
             getattr(self, "privkey", None)
         )
@@ -134,6 +153,7 @@ class Server(KeyedClass):
     LOGGER: Optional[Logger] = None
 
     def __init__(self) -> None:
+        """Make a new Server object."""
         self.socket = socket.socket(self.FAMILY, self.TYPE)
         self.socket.settimeout(self.TIMEOUT)
         if self.BIND is None:
@@ -187,6 +207,13 @@ class Server(KeyedClass):
             return Request(NULL, self.privkey)
 
     def _handle_pubkey(self, clientsocket: socket.socket, address: Tuple[str, int]):
+        """
+        Handle [PUBKEY].
+
+        Args:
+            clientsocket (socket.socket): Client socket.
+            address (Tuple[str, int]): Address
+        """
         if self.stopped:
             return
         self.logger.info(f"Received [PUBKEY] from client ({address})")
@@ -226,6 +253,13 @@ class Server(KeyedClass):
             return
 
     def _handle(self, clientsocket: socket.socket, address: Tuple[str, int]) -> None:
+        """
+        Internal handling new connections.
+
+        Args:
+            clientsocket (socket.socket): Client socket
+            address (Tuple[str, int]): Address
+        """
         if self.stopped:
             return
         self.logger.info(f"New connection from {address}")
@@ -302,12 +336,15 @@ class Server(KeyedClass):
 
 
 class Client(KeyedClass):
+    """A client."""
+
     FAMILY = socket.AF_INET
     TYPE = socket.SOCK_STREAM
     TIMEOUT = 3.0
     LOGGER: Optional[Logger] = None
 
     def __init__(self) -> None:
+        """Make a new Client object."""
         self.socket = socket.socket(self.FAMILY, self.TYPE)
         self.socket.settimeout(self.TIMEOUT)
         self.logger = (
@@ -318,6 +355,16 @@ class Client(KeyedClass):
     def _recv_msg(
         self, socket_: Optional[socket.socket] = None, *, decode: bool
     ) -> bytes:
+        """
+        Receive message. Used internally.
+
+        Args:
+            decode (bool): Decode with Base64?
+            socket_ (Optional[socket.socket], optional): Socket to use. Defaults to None.
+
+        Returns:
+            bytes: Received bytes
+        """
         socket_ = socket_ if socket_ is not None else self.socket
         msg = b""
         while True:
@@ -335,6 +382,18 @@ class Client(KeyedClass):
         return msg if not decode else b64decode(msg)
 
     def send_enc(self, msg: bytes) -> bytes:
+        """
+        Send encrypted and encoded msg, then return decrypted and decoded response.
+
+        Args:
+            msg (bytes): Message to send.
+
+        Returns:
+            bytes: Response
+        """
+        assert (
+            self.initialized and self._keyed
+        ), "Client must have two keys and must be initialized"
         self.logger.info(f"Sending encrypted text {msg!r}...")
         enc = rsa.encrypt(msg, self.serverpubkey)  # type: ignore
         self.socket.sendall(b64encode(enc))
@@ -342,63 +401,75 @@ class Client(KeyedClass):
         msg = rsa.decrypt(self._recv_msg(self.socket, decode=True), self.privkey)
         return msg
 
-    def init(self, address: Union[Tuple[str, int], str, bytes]):
-        while True:
-            self.logger.info("Initializing connection...")
-            self.initialized = False
-            assert self._keyed, "Client must have two keys before starting"
+    def init(self, address: Union[Tuple[str, int], str, bytes]) -> bool:
+        """
+        Initialize connection.
 
-            self.logger.info(f"  Public key (n): {self.pubkey.n!r}")
-            self.logger.info(f"  Connecting to {address!r}...")
+        Args:
+            address (Union[Tuple[str, int], str, bytes]): Server's address.
+
+        Returns:
+            bool: True if success
+        """
+        self.logger.info("Initializing connection...")
+        self.initialized = False
+        assert self._keyed, "Client must have two keys before starting"
+
+        self.logger.info(f"  Public key (n): {self.pubkey.n!r}")
+        self.logger.info(f"  Connecting to {address!r}...")
+        try:
             self.socket.connect(address)
-
-            self.logger.info("  Key exchange...")
-            self.logger.info("    Sending clear text message [PUBKEY]...")
-            self.socket.sendall(PUBKEY + b"\x04")
-
-            self.logger.info("    Loading server public key...")
-            try:
-                self.serverpubkey = rsa.PublicKey.load_pkcs1(
-                    self._recv_msg(self.socket, decode=False), "PEM"
-                )
-            except OSError:
-                self.logger.error("    Server [pubkey] cannot be loadied; retrying...")
-                continue
-            self.logger.info(f"      Got server publickey ({self.serverpubkey.n})")
-
-            enc = rsa.encrypt(KEYCHECK, self.serverpubkey)  # type: ignore  # noqa
-            self.logger.info(f"    Sending encrypted message [KEYCHECK] {enc!r}...")
-            self.socket.sendall(b64encode(enc) + b"\x04")
-            del enc
-
-            self.logger.info("    Checking if we receive [PUBKEY]...")
-            if (msg := self._recv_msg(self.socket, decode=False)) != PUBKEY:
-                self.logger.error(
-                    f"Server didn't ask for public key, it sent {msg!r}; retrying..."
-                )
-                continue
-
-            self.logger.info("      Received [PUBKEY]")
-            self.logger.info(
-                f"    Sending publickey {self.pubkey.save_pkcs1('PEM')!r}..."
+        except socket.error:
+            self.logger.exception(
+                "    Cannot connect to server. IP/port misspelled or firewall?"
             )
-            self.socket.sendall(b64encode(self.pubkey.save_pkcs1("PEM")) + b"\x04")
+            return False
+        else:
+            self.logger.info("    Connected successfully!")
 
-            self.logger.info("    Checking if we receive encrypted [KEYCHECK]...")
-            __r = self._recv_msg(self.socket, decode=True)
+        self.logger.info("  Key exchange...")
+        self.logger.info("    Sending clear text message [PUBKEY]...")
+        self.socket.sendall(PUBKEY + b"\x04")
 
-            self.logger.info(f"      Received {__r!r}; decrypting...")
-            _r = rsa.decrypt(__r, self.privkey)
+        self.logger.info("    Loading server public key...")
+        try:
+            self.serverpubkey = rsa.PublicKey.load_pkcs1(
+                self._recv_msg(self.socket, decode=False), "PEM"
+            )
+        except OSError:
+            self.logger.error("    Server [pubkey] cannot be loaded")
+            return False
+        self.logger.info(f"      Got server publickey ({self.serverpubkey.n})")
 
-            if _r != KEYCHECK:
-                self.logger.error(
-                    f"We didn't receive encrypted [KEYCHECK], we got {_r!r}; retrying..."
-                )
-                continue
-            self.logger.info("      Received [KEYCHECK]")
-            self.logger.info("    Key exchange is done!")
-            self.initialized = True
-            break
+        enc = rsa.encrypt(KEYCHECK, self.serverpubkey)  # type: ignore  # noqa
+        self.logger.info(f"    Sending encrypted message [KEYCHECK] {enc!r}...")
+        self.socket.sendall(b64encode(enc) + b"\x04")
+        del enc
+
+        self.logger.info("    Checking if we receive [PUBKEY]...")
+        if (msg := self._recv_msg(self.socket, decode=False)) != PUBKEY:
+            self.logger.error(f"Server didn't ask for public key, it sent {msg!r}")
+            return False
+
+        self.logger.info("      Received [PUBKEY]")
+        self.logger.info(f"    Sending publickey {self.pubkey.save_pkcs1('PEM')!r}...")
+        self.socket.sendall(b64encode(self.pubkey.save_pkcs1("PEM")) + b"\x04")
+
+        self.logger.info("    Checking if we receive encrypted [KEYCHECK]...")
+        __r = self._recv_msg(self.socket, decode=True)
+
+        self.logger.info(f"      Received {__r!r}; decrypting...")
+        _r = rsa.decrypt(__r, self.privkey)
+
+        if _r != KEYCHECK:
+            self.logger.error(
+                f"We didn't receive encrypted [KEYCHECK], we got {_r!r}; retrying..."
+            )
+            return False
+        self.logger.info("      Received [KEYCHECK]")
+        self.logger.info("    Key exchange is done!")
+        self.initialized = True
+        return True
 
     def make_req(self, msg: bytes) -> bytes:
         assert self.initialized, "Client must be initialized using method `init`"
@@ -413,4 +484,10 @@ class _TestServer(Server):
     """This class is intended for testing purposes only! This class must not be used in production; please inherit from `Server` instead."""
 
     def handle(self, *args, **kwargs):
+        """
+        This class is intended for testing purposes only! This class must not be used in production; please inherit from `Server` instead.
+
+        Returns:
+            str
+        """
         return self.__doc__
