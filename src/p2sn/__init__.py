@@ -186,7 +186,7 @@ class Server(KeyedClass):
             else self.LOGGER
         )
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the server. Warning: Threads cannot be stopped, so server can\
  refuse to stop!"""
         self.stopped = True
@@ -232,7 +232,7 @@ class Server(KeyedClass):
 
     def _handle_pubkey(
         self, clientsocket: socket.socket, address: Tuple[str, int]
-    ):
+    ) -> Optional[bool]:
         """
         Handle [PUBKEY].
 
@@ -241,7 +241,7 @@ class Server(KeyedClass):
             address (Tuple[str, int]): Address
         """
         if self.stopped:
-            return
+            return None
         self.logger.info(f"Received [PUBKEY] from client ({address})")
         self.logger.info(
             f"Sending server [pubkey] to client ({address})"
@@ -279,7 +279,7 @@ class Server(KeyedClass):
                 )
                 clientsocket.sendall(ERRORKEY + b"\x04")
                 clientsocket.close()
-                return
+                return None
             self.logger.info(
                 f"Sending encrypted KEYCHECK to client ({address})"
             )
@@ -291,11 +291,11 @@ class Server(KeyedClass):
         else:
             self.logger.error(
                 f"Didn't receive keycheck from client ({address!r});"
-                f" got {r_.og_msg}"
+                f" got {r_.og_msg!r}"
             )
             clientsocket.sendall(ERRORKEY + b"\x04")
             clientsocket.close()
-            return
+            return None
 
     def _handle(
         self, clientsocket: socket.socket, address: Tuple[str, int]
@@ -359,7 +359,7 @@ class Server(KeyedClass):
         clientsocket: socket.socket,
         address: Tuple[str, int],
         request: Request,
-    ):
+    ) -> Any:
         """
         Handle the request. A subclass should implement this method.
 
@@ -406,7 +406,7 @@ class Client(KeyedClass):
     TYPE = socket.SOCK_STREAM
     TIMEOUT = 3.0
     LOGGER: Optional[Logger] = None
-    serverpubkey: rsa.PublicKey
+    serverpubkey: Union[rsa.PublicKey, rsa.key.AbstractKey]
 
     def __init__(self) -> None:
         """Make a new Client object."""
@@ -465,7 +465,9 @@ class Client(KeyedClass):
             "Client must have two keys and must be initialized",
         )
         self.logger.info(f"Sending encrypted text {msg!r}...")
-        enc = rsa.encrypt(msg, self.serverpubkey)  # type: ignore
+        if not isinstance(self.serverpubkey, rsa.PublicKey):
+            raise TypeError
+        enc = rsa.encrypt(msg, self.serverpubkey)
         self.socket.sendall(b64encode(enc))
         self.logger.info("Decrypting and verifying response...")
         return rsa.decrypt(
@@ -588,7 +590,7 @@ class TestServer(Server):
     """This class is intended for testing purposes only! This class must not\
  be used in production; please inherit from `Server` instead."""
 
-    def handle(self, *_, **__):
+    def handle(self, *_: Any, **__: Any) -> Any:
         """
         This class is intended for testing purposes only! This class must not\
  be used in production; please inherit from `Server` instead.

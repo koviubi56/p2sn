@@ -2,7 +2,7 @@ import argparse
 import p2sn
 
 
-def main():
+def main() -> bytes:
     argparser = argparse.ArgumentParser("P2SN")
     argparser.add_argument(
         "ip", action="store", help="IP address of the server"
@@ -40,7 +40,7 @@ def main():
     client.logger.setLevel(args.q * 10 + 10)
     client.gen_keys(args.nbits, args.accurate)
     client.init((args.ip, args.port))
-    rv = client.make_req(" ".join(args.msg))
+    rv = client.make_req(b" ".join(args.msg))
     print(rv)
     return rv
 
