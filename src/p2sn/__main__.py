@@ -1,8 +1,12 @@
+"""
+CLI for P2SN.
+"""
 import argparse
 import p2sn
 
 
 def main() -> bytes:
+    """Main."""
     argparser = argparse.ArgumentParser("P2SN")
     argparser.add_argument(
         "ip", action="store", help="IP address of the server"
