@@ -10,7 +10,7 @@ class MyServer(p2sn.Server):
         address: Tuple[str, int],
         request: p2sn.Request,
     ) -> None:
-        print(f"{address} sent: {request._msg.decode()}")
+        print(f"{address} sent: {request.og_msg.decode()}")
         self.reply(clientsocket, address, b"Hi!")
 
 

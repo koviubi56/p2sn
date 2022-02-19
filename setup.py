@@ -13,7 +13,8 @@ except Exception:
             from warnings import warn
 
             warn(
-                "Could not import p2sn; setting up without informations about the project.",
+                "Could not import p2sn; setting up without informations about"
+                " the project.",
                 UserWarning,
             )
             P2SN = False
@@ -26,9 +27,15 @@ if __name__ == "__main__":
             _in = False
             with open("setup.cfg", "r", encoding="utf-8") as f:
                 for line in f:
-                    if line.strip() == "# -----START OF CLASSIFIERS-----":
+                    if (
+                        line.strip()
+                        == "# -----START OF CLASSIFIERS-----"
+                    ):
                         _in = True
-                    elif line.strip() == "# -----END OF CLASSIFIERS-----":
+                    elif (
+                        line.strip()
+                        == "# -----END OF CLASSIFIERS-----"
+                    ):
                         _in = False
                     elif _in:
                         classifiers.append(line.strip())
@@ -56,7 +63,9 @@ if __name__ == "__main__":
                 f"Author: {p2sn.__author__}",
                 f"Author-email: {p2sn.__email__}",
                 f"License: {p2sn.__license__}",
-                f"Classifier: {', '.join(classifiers)}" if classifiers else "",
+                f"Classifier: {', '.join(classifiers)}"
+                if classifiers
+                else "",
                 "Requires: rsa >= 4.8",
             ],
             **kwargs,
