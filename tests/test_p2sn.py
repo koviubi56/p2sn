@@ -1,3 +1,6 @@
+"""
+Tests for P2SN.
+"""
 from base64 import b64encode
 from functools import lru_cache
 
@@ -7,11 +10,13 @@ import p2sn
 
 cache = lru_cache(maxsize=None)
 
+# pylint: disable=missing-function-docstring
+
 
 @cache
 def serverkeypair() -> p2sn.SERVERKEYPAIR:
     """Server keypair"""
-    s = p2sn._TestServer()
+    s = p2sn.TestServer()
     s.gen_keys(s.min_nbits * 2, False)
     return p2sn.SERVERKEYPAIR(s.pubkey, s.privkey)
 
@@ -37,6 +42,8 @@ def ckp() -> p2sn.USERKEYPAIR:
 
 
 class TestRequests:
+    """Tests for P2SN requests."""
+
     @pytest.mark.parametrize(
         "msg, typ",
         [
@@ -51,17 +58,21 @@ class TestRequests:
             ),
             (b"P2SN:PUBKEY", p2sn.Request.Type.PUBKEY),
             (
-                b64encode(rsa.encrypt(b"P2SN:KEYCHECK", serverkeypair().public)),
+                b64encode(
+                    rsa.encrypt(
+                        b"P2SN:KEYCHECK", serverkeypair().public
+                    )
+                ),
                 p2sn.Request.Type.KEYCHECK,
             ),
         ],
     )
     def test_types(
         self,
-        skp: p2sn.SERVERKEYPAIR,
+        skp: p2sn.SERVERKEYPAIR,  # pylint: disable=redefined-outer-name
         msg: str,
         typ: p2sn.Request.Type,
     ):
         r = p2sn.Request(msg, skp.private)
-        assert r.type == typ
-        assert r._msg == msg
+        assert r.type == typ  # nosec
+        assert r.og_msg == msg  # nosec
