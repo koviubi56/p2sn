@@ -15,12 +15,12 @@ GNU Lesser General Public License for more details.
 You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-from base64 import b64encode, b64decode
-from collections import namedtuple
 import socket
 from abc import ABC, abstractmethod
+from base64 import b64decode, b64encode
+from collections import namedtuple
 from enum import Enum, auto
-from logging import basicConfig, getLogger, Logger
+from logging import Logger, basicConfig, getLogger
 from threading import Thread
 from types import MethodType
 from typing import Any, Dict, Optional, Tuple, Union
@@ -109,6 +109,15 @@ class Request:
                 print("  [DEBUG] Msg is KEYCHECK")
                 self.type = self.Type.KEYCHECK
 
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the request.
+
+        Returns:
+            str: String representation of the request.
+        """
+        return f"<Request type={self.type!r} msg={self.msg!r}>"
+
 
 class KeyedClass(ABC):
     """ABC for classes that use/need a public and a private key."""
@@ -165,7 +174,7 @@ class Server(KeyedClass):
     FAMILY = socket.AF_INET
     TYPE = socket.SOCK_STREAM
     TIMEOUT = 1.0
-    BIND: Optional[Union[bytes, Tuple[Any, ...], str]] = None
+    BIND: Union[bytes, Tuple[Any, ...], str, type(None)] = None
     LOGGER: Optional[Logger] = None
 
     def __init__(self) -> None:
@@ -314,17 +323,18 @@ class Server(KeyedClass):
             self.logger.info(
                 f"Receiving message from client ({address})..."
             )
-            r = self._recv_msg(clientsocket)
-            if r.type == Request.Type.NULL:
+            received_msg = self._recv_msg(clientsocket)
+            if received_msg.type == Request.Type.NULL:
                 self.logger.info(
                     f'"Received" [NULL] from client ({address}), terminating'
                     " connection..."
                 )
                 return
             self.logger.info(
-                f"Received [{r.type}] {r.og_msg!r} from {address}"
+                f"Received [{received_msg.type}] {received_msg.og_msg!r} from"
+                f" {address}"
             )
-            if r.type == Request.Type.PUBKEY:
+            if received_msg.type == Request.Type.PUBKEY:
                 self.logger.info(f"Received [PUBKEY] from {address}")
                 if self._handle_pubkey(clientsocket, address) is None:
                     self.logger.info(
@@ -332,9 +342,9 @@ class Server(KeyedClass):
                         " exchange"
                     )
                     return
-            elif r.type == Request.Type.MSG:
+            elif received_msg.type == Request.Type.MSG:
                 self.logger.info(f"Received message from {address}")
-                self.handle(clientsocket, address, r)
+                self.handle(clientsocket, address, received_msg)
 
     def reply(
         self,
@@ -391,12 +401,12 @@ class Server(KeyedClass):
             except (socket.timeout, TimeoutError):
                 continue
             self.logger.info(f"Got connection from {address}")
-            t = Thread(
+            thread = Thread(
                 target=self._handle,
                 name=f"Thread-P2SN-{address}",
                 args=(clientsocket, address),
             )
-            t.start()
+            thread.start()
 
 
 class Client(KeyedClass):
