@@ -70,9 +70,11 @@ class TestRequests:
     def test_types(
         self,
         skp: p2sn.SERVERKEYPAIR,  # pylint: disable=redefined-outer-name
-        msg: str,
+        msg: bytes,
         typ: p2sn.Request.Type,
-    ):
-        r = p2sn.Request(msg, skp.private)
+    ) -> None:
+        r = p2sn.Request(
+            msg, skp.private, clientsocket=None, address=None
+        )
         assert r.type == typ  # nosec
         assert r.og_msg == msg  # nosec
