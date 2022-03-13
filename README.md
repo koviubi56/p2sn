@@ -3,7 +3,7 @@
 [![CodeQL](https://github.com/koviubi56/p2sn/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/koviubi56/p2sn/actions/workflows/codeql-analysis.yml)
 [![Tests](https://github.com/koviubi56/p2sn/actions/workflows/tests.yml/badge.svg)](https://github.com/koviubi56/p2sn/actions/workflows/tests.yml)
 [![CodeFactor](https://www.codefactor.io/repository/github/koviubi56/p2sn/badge)](https://www.codefactor.io/repository/github/koviubi56/p2sn)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/8425401d1e874be1a4c02b31ab5e48d4)](https://www.codacy.com/gh/koviubi56/p2sn/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=koviubi56/p2sn&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/8425401d1e874be1a4c02b31ab5e48d4)](https://www.codacy.com/gh/koviubi56/p2sn/dashboard?utm_source=github.com&utm_medium=referral&utm_content=koviubi56/p2sn&utm_campaign=Badge_Grade)
 
 P2SN is a Peer to Peer, encrypted Socket Network written in python.
 P2SN uses asymmetric/public key encription ([RSA](https://pypi.org/project/rsa/)) for all\* communication between the two peers.
@@ -17,15 +17,18 @@ P2SN uses Base64 (with the '+' and '/' characters) to encode and decode everythi
 
 ### Key exchange
 
-```text
-SERVER                     CLIENT
-  ┌─What's your public key?─┘
-  └─It's 12642607...────────┐
-  ┌─[KEYCHECK]──────────────┘
-  └─What's your public key?─┐
-  ┌─It's 12642607...────────┘
-  └─[KEYCHECK]──────────────┐
-                          Done!
+_[Can't see it?](https://gist.github.com/koviubi56/aaa2309ce82123b97e29a70354298b41)_
+
+```mermaid
+sequenceDiagram
+    participant SERVER
+    participant CLIENT
+    CLIENT->>SERVER: What's your public key?
+    SERVER->>CLIENT: It's 12642607...
+    CLIENT->>SERVER: [KEYCHECK]
+    SERVER->>CLIENT: What's your public key?
+    CLIENT->>SERVER: It's 12642607...
+    SERVER->>CLIENT: [KEYCHECK]
 ```
 
 _b"..."_ means a bytes string.
