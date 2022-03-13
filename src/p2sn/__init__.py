@@ -15,6 +15,7 @@ GNU Lesser General Public License for more details.
 You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import contextlib
 import socket
 from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
@@ -369,15 +370,13 @@ class Server(KeyedClass):
                     " connection..."
                 )
                 return
-            try:
+            with contextlib.suppress(AttributeError):
                 if received_msg.msg == b"":
                     self.logger.info(
                         f"Received empty message from client ({address}), "
                         "terminating connection..."
                     )
                     return
-            except AttributeError:
-                pass
             self.logger.info(
                 f"Received [{received_msg.type}] {received_msg.og_msg!r} from"
                 f" {address}"
