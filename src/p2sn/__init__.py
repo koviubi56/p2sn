@@ -24,7 +24,7 @@ from enum import Enum, auto
 from logging import Logger, basicConfig, getLogger
 from threading import Thread
 from types import MethodType
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import rsa
 
