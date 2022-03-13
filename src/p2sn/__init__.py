@@ -39,6 +39,7 @@ __url__ = "https://github.com/koviubi56/p2sn"
 PUBKEY = b"P2SN:PUBKEY"
 KEYCHECK = b"P2SN:KEYCHECK"
 ERRORKEY = b"P2SN:ERRORKEY"
+UNEXPECTEDERROR = b"P2SN:UNEXPECTEDERROR"
 NULL = b"P2SN:NULL"
 
 END_OF_BLOCK = b"\x03"
@@ -204,6 +205,7 @@ class Server(KeyedClass):
             if self.LOGGER is None
             else self.LOGGER
         )
+        self._init = True
 
     def stop(self) -> None:
         """Stop the server. Warning: Threads cannot be stopped, so server can\
@@ -397,10 +399,16 @@ class Server(KeyedClass):
                     )
                     return
                 self.logger.info(f"Received message from {address}")
-                self.handle(
-                    received_msg,
-                    self.make_reply(clientsocket, address),
-                )
+                try:
+                    self.handle(
+                        received_msg,
+                        self.make_reply(clientsocket, address),
+                    )
+                except Exception:
+                    self.logger.error(
+                        "Error while handling message", exc_info=1
+                    )
+                    self.reply(clientsocket, address, UNEXPECTEDERROR)
 
     def reply(
         self,
@@ -461,6 +469,11 @@ class Server(KeyedClass):
         _assert(
             isinstance(getattr(self, "handle", None), MethodType),
             "Server must implement method handle",
+        )
+        _assert(
+            getattr(self, "_init", None) is True,
+            '__init__ must be ran. Did you overwrite it? If yes, run "return'
+            ' super().__init__()" at the end',
         )
         self.logger.info("Starting server...")
         self.logger.info(f"Public key (n): {self.pubkey.n!r}")

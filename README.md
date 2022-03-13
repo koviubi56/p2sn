@@ -19,6 +19,8 @@ P2SN uses Base64 (with the '+' and '/' characters) to encode and decode everythi
 
 _[Can't see it?](https://gist.github.com/koviubi56/aaa2309ce82123b97e29a70354298b41)_
 
+<!-- ! IMPORTANT NOTE: If you edit te diagram below, make sure to edit the fallback diagram above! -->
+
 ```mermaid
 sequenceDiagram
     participant SERVER
@@ -30,6 +32,8 @@ sequenceDiagram
     CLIENT->>SERVER: It's 12642607...
     SERVER->>CLIENT: [KEYCHECK]
 ```
+
+<!-- ! IMPORTANT NOTE: If you edit te diagram above, make sure to edit the fallback diagram ("Can't see it?")! -->
 
 _b"..."_ means a bytes string.
 _\x04_ marks the end of the message, [ASCII code 4](https://theasciicode.com.ar/ascii-control-characters/eot-end-of-transmission-diamonds-card-suit-ascii-code-4.html).
