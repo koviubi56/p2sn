@@ -24,7 +24,7 @@ from enum import Enum, auto
 from logging import Logger, basicConfig, getLogger
 from threading import Thread
 from types import MethodType
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 import rsa
 
@@ -184,7 +184,7 @@ class Server(KeyedClass):
     FAMILY = socket.AF_INET
     TYPE = socket.SOCK_STREAM
     TIMEOUT = 1.0
-    BIND: Union[bytes, Tuple[Any, ...], str, type(None)] = None
+    BIND: Union[bytes, Tuple[Any, ...], str, None] = None
     LOGGER: Optional[Logger] = None
 
     def __init__(self) -> None:
