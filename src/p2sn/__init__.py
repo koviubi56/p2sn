@@ -543,7 +543,7 @@ class Client(KeyedClass):
                 msg += new_data
                 if data.find(b"\x04") != -1:
                     break
-        return msg if not decode else b64decode(msg)
+        return b64decode(msg) if decode else msg
 
     def send_enc(self, msg: bytes) -> bytes:
         """
