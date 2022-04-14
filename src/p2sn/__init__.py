@@ -15,15 +15,16 @@ GNU Lesser General Public License for more details.
 You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-from base64 import b64encode, b64decode
-from collections import namedtuple
+import contextlib
 import socket
 from abc import ABC, abstractmethod
+from base64 import b64decode, b64encode
+from collections import namedtuple
 from enum import Enum, auto
-from logging import basicConfig, getLogger, Logger
+from logging import Logger, basicConfig, getLogger
 from threading import Thread
 from types import MethodType
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import rsa
 
@@ -38,6 +39,7 @@ __url__ = "https://github.com/koviubi56/p2sn"
 PUBKEY = b"P2SN:PUBKEY"
 KEYCHECK = b"P2SN:KEYCHECK"
 ERRORKEY = b"P2SN:ERRORKEY"
+UNEXPECTEDERROR = b"P2SN:UNEXPECTEDERROR"
 NULL = b"P2SN:NULL"
 
 END_OF_BLOCK = b"\x03"
@@ -67,7 +69,14 @@ class Request:
         KEYCHECK = auto()
         NULL = auto()
 
-    def __init__(self, msg: bytes, privkey: rsa.PrivateKey) -> None:
+    def __init__(
+        self,
+        msg: bytes,
+        privkey: rsa.PrivateKey,
+        *,
+        clientsocket: socket.socket,
+        address: Tuple[str, int],
+    ) -> None:
         """
         Make a new request object.
 
@@ -77,6 +86,8 @@ class Request:
         """
         print(f"  [DEBUG] Got bytes: {msg!r}")
         self.og_msg = msg
+        self.clientsocket = clientsocket
+        self.address = address
         self.type = (
             self.Type.PUBKEY
             if self.og_msg == PUBKEY
@@ -108,6 +119,15 @@ class Request:
             if self.msg == KEYCHECK:
                 print("  [DEBUG] Msg is KEYCHECK")
                 self.type = self.Type.KEYCHECK
+
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the request.
+
+        Returns:
+            str: String representation of the request.
+        """
+        return f"<Request type={self.type!r} msg={self.msg!r}>"
 
 
 class KeyedClass(ABC):
@@ -165,7 +185,7 @@ class Server(KeyedClass):
     FAMILY = socket.AF_INET
     TYPE = socket.SOCK_STREAM
     TIMEOUT = 1.0
-    BIND: Optional[Union[bytes, Tuple[Any, ...], str]] = None
+    BIND: Union[bytes, Tuple[Any, ...], str, None] = None
     LOGGER: Optional[Logger] = None
 
     def __init__(self) -> None:
@@ -185,6 +205,7 @@ class Server(KeyedClass):
             if self.LOGGER is None
             else self.LOGGER
         )
+        self._init = True
 
     def stop(self) -> None:
         """Stop the server. Warning: Threads cannot be stopped, so server can\
@@ -194,41 +215,71 @@ class Server(KeyedClass):
     def _recv_msg(
         self,
         clientsocket: socket.socket,
+        address: Tuple[str, int],
     ) -> Request:
         """
         Receive a message from a client socket.
 
         Args:
             clientsocket (socket.socket): Client socket.
+            address (Tuple[str, int]): Address of the client.
 
         Returns:
             Request: The request. If an error happens, it may be a NULL\
  request.
         """
         if self.stopped:
-            return Request(NULL, self.privkey)
+            return Request(
+                NULL,
+                self.privkey,
+                clientsocket=clientsocket,
+                address=address,
+            )
         msg = b""
         try:
             data = clientsocket.recv(64_000)
         except (socket.timeout, TimeoutError):
             pass
         except (ConnectionAbortedError, ConnectionResetError):
-            return Request(NULL, self.privkey)
+            return Request(
+                NULL,
+                self.privkey,
+                clientsocket=clientsocket,
+                address=address,
+            )
         if data or data.startswith(b"\x04"):
             new_data = data.split(b"\x04")[0]
             msg += new_data
+
+        if msg == b"":
+            return Request(
+                NULL,
+                self.privkey,
+                clientsocket=clientsocket,
+                address=address,
+            )
 
         self.logger.info(
             f"Got message {msg!r} from client ({clientsocket.getpeername()})"
         )
         try:
-            return Request(msg, self.privkey)
+            return Request(
+                msg,
+                self.privkey,
+                clientsocket=clientsocket,
+                address=address,
+            )
         except Exception as er:
             self.logger.error(
                 f"Error while decrypting and returning request: {er!r}"
             )
             clientsocket.sendall(ERRORKEY + b"\x04")
-            return Request(NULL, self.privkey)
+            return Request(
+                NULL,
+                self.privkey,
+                clientsocket=clientsocket,
+                address=address,
+            )
 
     def _handle_pubkey(
         self, clientsocket: socket.socket, address: Tuple[str, int]
@@ -250,7 +301,7 @@ class Server(KeyedClass):
         self.logger.info(
             f"Receiving client ({address}) [KEYCHECK]..."
         )
-        r_ = self._recv_msg(clientsocket)
+        r_ = self._recv_msg(clientsocket, address)
         if r_.type == Request.Type.KEYCHECK:
             self.logger.info(
                 f"Received [KEYCHECK] from client ({address})"
@@ -267,7 +318,7 @@ class Server(KeyedClass):
                 self.clientpubkey[
                     address[0]
                 ] = rsa.PublicKey.load_pkcs1(
-                    self._recv_msg(clientsocket).msg, "PEM"
+                    self._recv_msg(clientsocket, address).msg, "PEM"
                 )
                 self.logger.info(
                     f"[pubkey]: {self.clientpubkey[address[0]]!r};; n:"
@@ -314,17 +365,25 @@ class Server(KeyedClass):
             self.logger.info(
                 f"Receiving message from client ({address})..."
             )
-            r = self._recv_msg(clientsocket)
-            if r.type == Request.Type.NULL:
+            received_msg = self._recv_msg(clientsocket, address)
+            if received_msg.type == Request.Type.NULL:
                 self.logger.info(
                     f'"Received" [NULL] from client ({address}), terminating'
                     " connection..."
                 )
                 return
+            with contextlib.suppress(AttributeError):
+                if received_msg.msg == b"":
+                    self.logger.info(
+                        f"Received empty message from client ({address}), "
+                        "terminating connection..."
+                    )
+                    return
             self.logger.info(
-                f"Received [{r.type}] {r.og_msg!r} from {address}"
+                f"Received [{received_msg.type}] {received_msg.og_msg!r} from"
+                f" {address}"
             )
-            if r.type == Request.Type.PUBKEY:
+            if received_msg.type == Request.Type.PUBKEY:
                 self.logger.info(f"Received [PUBKEY] from {address}")
                 if self._handle_pubkey(clientsocket, address) is None:
                     self.logger.info(
@@ -332,9 +391,24 @@ class Server(KeyedClass):
                         " exchange"
                     )
                     return
-            elif r.type == Request.Type.MSG:
+            elif received_msg.type == Request.Type.MSG:
+                if received_msg.msg == b"":
+                    self.logger.info(
+                        f"Received empty message from {address}, terminating"
+                        " connection..."
+                    )
+                    return
                 self.logger.info(f"Received message from {address}")
-                self.handle(clientsocket, address, r)
+                try:
+                    self.handle(
+                        received_msg,
+                        self.make_reply(clientsocket, address),
+                    )
+                except Exception:
+                    self.logger.error(
+                        "Error while handling message", exc_info=True
+                    )
+                    self.reply(clientsocket, address, UNEXPECTEDERROR)
 
     def reply(
         self,
@@ -353,20 +427,37 @@ class Server(KeyedClass):
         encrypted = rsa.encrypt(message, self.clientpubkey[address[0]])  # type: ignore  # noqa
         return clientsocket.sendall(b64encode(encrypted) + b"\x04")
 
+    def make_reply(
+        self, clientsocket: socket.socket, address: Tuple[str, int]
+    ) -> Callable[[bytes], None]:
+        """
+        Make a reply function.
+
+        Args:
+            clientsocket (socket.socket): Socket
+            address (Tuple[str, int]): Address
+
+        Returns:
+            Callable[[bytes], None]: Reply function
+        """
+
+        def reply(message: bytes) -> None:
+            return self.reply(clientsocket, address, message)
+
+        return reply
+
     @abstractmethod
     def handle(
         self,
-        clientsocket: socket.socket,
-        address: Tuple[str, int],
         request: Request,
+        reply: Callable[[bytes], None],
     ) -> Any:
         """
         Handle the request. A subclass should implement this method.
 
         Args:
-            clientsocket (socket.socket): The socket
-            address (Tuple[str, int]): The address
             request (Request): The request
+            reply (Callable[[bytes], None]): The reply function
         """
         return NotImplemented
 
@@ -378,6 +469,11 @@ class Server(KeyedClass):
         _assert(
             isinstance(getattr(self, "handle", None), MethodType),
             "Server must implement method handle",
+        )
+        _assert(
+            getattr(self, "_init", None) is True,
+            '__init__ must be ran. Did you overwrite it? If yes, run "return'
+            ' super().__init__()" at the end',
         )
         self.logger.info("Starting server...")
         self.logger.info(f"Public key (n): {self.pubkey.n!r}")
@@ -391,12 +487,12 @@ class Server(KeyedClass):
             except (socket.timeout, TimeoutError):
                 continue
             self.logger.info(f"Got connection from {address}")
-            t = Thread(
+            thread = Thread(
                 target=self._handle,
                 name=f"Thread-P2SN-{address}",
                 args=(clientsocket, address),
             )
-            t.start()
+            thread.start()
 
 
 class Client(KeyedClass):
@@ -469,7 +565,7 @@ class Client(KeyedClass):
             raise TypeError
         enc = rsa.encrypt(msg, self.serverpubkey)
         self.socket.sendall(b64encode(enc))
-        self.logger.info("Decrypting and verifying response...")
+        self.logger.info("Decrypting response...")
         return rsa.decrypt(
             self._recv_msg(self.socket, decode=True), self.privkey
         )
