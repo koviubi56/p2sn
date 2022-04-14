@@ -406,7 +406,7 @@ class Server(KeyedClass):
                     )
                 except Exception:
                     self.logger.error(
-                        "Error while handling message", exc_info=1
+                        "Error while handling message", exc_info=True
                     )
                     self.reply(clientsocket, address, UNEXPECTEDERROR)
 
