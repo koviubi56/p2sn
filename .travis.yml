@@ -1,0 +1,9 @@
+language: python
+cache: pip
+before_install:
+  - python3 -m pip install --upgrade pip setuptools wheel
+install:
+  - python3 -m pip install flake8 safety
+script:
+  - python3 -m flake8 --count --show-source --statistics --append-config ./setup.cfg
+  - python3 -m safety check --full-report -r requirements.txt
