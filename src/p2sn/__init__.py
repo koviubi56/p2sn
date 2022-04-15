@@ -42,6 +42,7 @@ ERRORKEY = b"P2SN:ERRORKEY"
 UNEXPECTEDERROR = b"P2SN:UNEXPECTEDERROR"
 NULL = b"P2SN:NULL"
 
+# ? Is this used anywhere? (TODO)
 END_OF_BLOCK = b"\x03"
 
 basicConfig(
