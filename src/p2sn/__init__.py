@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import rsa
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Koviubi56"
 __email__ = "koviubi56@duck.com"
 __license__ = "GNU LGPLv3"
@@ -592,7 +592,7 @@ class Client(KeyedClass):
         self.logger.info(f"  Connecting to {address!r}...")
         try:
             self.socket.connect(address)
-        except socket.error:
+        except OSError:
             self.logger.exception(
                 "    Cannot connect to server. IP/port misspelled or firewall?"
             )
@@ -616,7 +616,7 @@ class Client(KeyedClass):
             f"      Got server publickey ({self.serverpubkey.n})"
         )
 
-        enc = rsa.encrypt(KEYCHECK, self.serverpubkey)  # type: ignore  # noqa
+        enc = rsa.encrypt(KEYCHECK, self.serverpubkey)  # type: ignore
         self.logger.info(
             f"    Sending encrypted message [KEYCHECK] {enc!r}..."
         )
