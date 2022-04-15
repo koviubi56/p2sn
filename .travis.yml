@@ -1,0 +1,16 @@
+language: python
+os: linux
+dist: trusty
+python:
+  - "3.8"
+  - "3.9"
+cache: pip
+before_install:
+  - python3 -m pip install --upgrade pip setuptools wheel
+install:
+  - if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+  - python3 -m pip install flake8 pytest safety pytest-randomly
+script:
+  - python3 -m flake8 --count --show-source --statistics --append-config ./setup.cfg
+  - python3 -m pytest --ff -vv -r A -l --color=yes --code-highlight=yes --continue-on-collection-errors --doctest-modules
+  - python3 -m safety check --full-report -r requirements.txt
