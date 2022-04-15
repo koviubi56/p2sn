@@ -624,9 +624,8 @@ class Client(KeyedClass):
         del enc
 
         self.logger.info("    Checking if we receive [PUBKEY]...")
-        if (
-            msg := self._recv_msg(self.socket, decode=False)
-        ) != PUBKEY:
+        msg = self._recv_msg(self.socket, decode=False)
+        if msg != PUBKEY:
             self.logger.error(
                 f"Server didn't ask for public key, it sent {msg!r}"
             )
