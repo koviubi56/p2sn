@@ -401,8 +401,8 @@ class Server(KeyedClass):
                 self.logger.info(f"Received message from {address}")
                 try:
                     self.handle(
-                        received_msg,
-                        self.make_reply(clientsocket, address),
+                        request=received_msg,
+                        reply=self.make_reply(clientsocket, address),
                     )
                 except Exception:
                     self.logger.error(
@@ -564,7 +564,7 @@ class Client(KeyedClass):
         if not isinstance(self.serverpubkey, rsa.PublicKey):
             raise TypeError
         enc = rsa.encrypt(msg, self.serverpubkey)
-        self.socket.sendall(b64encode(enc))
+        self.socket.sendall(b64encode(enc) + b"\x04")
         self.logger.info("Decrypting response...")
         return rsa.decrypt(
             self._recv_msg(self.socket, decode=True), self.privkey
