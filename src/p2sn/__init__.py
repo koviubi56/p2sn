@@ -16,6 +16,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import contextlib
+import os
 import socket
 from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
@@ -23,10 +24,20 @@ from collections import namedtuple
 from enum import Enum, auto
 from logging import Logger, basicConfig, getLogger
 from threading import Thread
+import time
 from types import MethodType
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import rsa
+import keyboard
 
 __version__ = "0.2.0"
 __author__ = "Koviubi56"
@@ -101,7 +112,7 @@ class Request:
                 # By the way there is a 1 in 256^30
                 # chance that the message will start with the
                 # "-----BEGIN RSA PRIVATE KEY-----" header, but it isn't a key.
-                self.msg = b64decode(self.og_msg)
+                self.msg = b64decode(self.og_msg, b"+/")
                 print(f"  [DEBUG] Got decoded msg: {self.msg!r}")
                 if not self.msg.startswith(
                     b"-----BEGIN RSA PUBLIC KEY-----"
@@ -188,8 +199,14 @@ class Server(KeyedClass):
     BIND: Union[bytes, Tuple[Any, ...], str, None] = None
     LOGGER: Optional[Logger] = None
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        if_ctrl_c: Literal[
+            "nothing", "self.stop", "os._exit"
+        ] = "os._exit",
+    ) -> None:
         """Make a new Server object."""
+        self.if_ctrl_c = if_ctrl_c
         self.socket = socket.socket(self.FAMILY, self.TYPE)
         self.socket.settimeout(self.TIMEOUT)
         if self.BIND is None:
@@ -238,9 +255,12 @@ class Server(KeyedClass):
         msg = b""
         try:
             data = clientsocket.recv(64_000)
-        except (socket.timeout, TimeoutError):
-            pass
-        except (ConnectionAbortedError, ConnectionResetError):
+        except (
+            ConnectionAbortedError,
+            ConnectionResetError,
+            socket.timeout,
+            TimeoutError,
+        ):
             return Request(
                 NULL,
                 self.privkey,
@@ -401,8 +421,8 @@ class Server(KeyedClass):
                 self.logger.info(f"Received message from {address}")
                 try:
                     self.handle(
-                        received_msg,
-                        self.make_reply(clientsocket, address),
+                        request=received_msg,
+                        reply=self.make_reply(clientsocket, address),
                     )
                 except Exception:
                     self.logger.error(
@@ -425,7 +445,9 @@ class Server(KeyedClass):
             message (bytes): Clear text message
         """
         encrypted = rsa.encrypt(message, self.clientpubkey[address[0]])  # type: ignore  # noqa
-        return clientsocket.sendall(b64encode(encrypted) + b"\x04")
+        return clientsocket.sendall(
+            b64encode(encrypted, b"+/") + b"\x04"
+        )
 
     def make_reply(
         self, clientsocket: socket.socket, address: Tuple[str, int]
@@ -461,6 +483,27 @@ class Server(KeyedClass):
         """
         return NotImplemented
 
+    def _ctrl_c_thread(self):
+        while True:
+            time.sleep(1)
+            if keyboard.is_pressed("ctrl+c"):
+                self.logger.info("Received CTRL+C, stopping...")
+                if self.if_ctrl_c == "self.stop":
+                    self.stop()
+                else:
+                    os._exit(1)
+                break
+
+    def make_ctrl_c_thread_if_needed(self) -> None:
+        if self.if_ctrl_c not in {"self.stop", "os._exit"}:
+            return
+        thread = Thread(
+            target=self._ctrl_c_thread,
+            name="Thread-P2SNCTRLC",
+            daemon=True,
+        )
+        thread.start()
+
     def start(self) -> None:
         """Start the server and listen."""
         _assert(
@@ -476,6 +519,8 @@ class Server(KeyedClass):
             ' super().__init__()" at the end',
         )
         self.logger.info("Starting server...")
+        self.logger.info("Starting CTRL+C thread if needed...")
+        self.make_ctrl_c_thread_if_needed()
         self.logger.info(f"Public key (n): {self.pubkey.n!r}")
         self.logger.info(
             f"Server is listening on {self.socket.getsockname()}"
@@ -543,7 +588,7 @@ class Client(KeyedClass):
                 msg += new_data
                 if data.find(b"\x04") != -1:
                     break
-        return b64decode(msg) if decode else msg
+        return b64decode(msg, b"+/") if decode else msg
 
     def send_enc(self, msg: bytes) -> bytes:
         """
@@ -564,7 +609,7 @@ class Client(KeyedClass):
         if not isinstance(self.serverpubkey, rsa.PublicKey):
             raise TypeError
         enc = rsa.encrypt(msg, self.serverpubkey)
-        self.socket.sendall(b64encode(enc))
+        self.socket.sendall(b64encode(enc, b"+/") + b"\x04")
         self.logger.info("Decrypting response...")
         return rsa.decrypt(
             self._recv_msg(self.socket, decode=True), self.privkey
@@ -620,7 +665,7 @@ class Client(KeyedClass):
         self.logger.info(
             f"    Sending encrypted message [KEYCHECK] {enc!r}..."
         )
-        self.socket.sendall(b64encode(enc) + b"\x04")
+        self.socket.sendall(b64encode(enc, b"+/") + b"\x04")
         del enc
 
         self.logger.info("    Checking if we receive [PUBKEY]...")
@@ -636,7 +681,7 @@ class Client(KeyedClass):
             f"    Sending publickey {self.pubkey.save_pkcs1('PEM')!r}..."
         )
         self.socket.sendall(
-            b64encode(self.pubkey.save_pkcs1("PEM")) + b"\x04"
+            b64encode(self.pubkey.save_pkcs1("PEM"), b"+/") + b"\x04"
         )
 
         self.logger.info(
