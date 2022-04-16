@@ -101,7 +101,7 @@ class Request:
                 # By the way there is a 1 in 256^30
                 # chance that the message will start with the
                 # "-----BEGIN RSA PRIVATE KEY-----" header, but it isn't a key.
-                self.msg = b64decode(self.og_msg)
+                self.msg = b64decode(self.og_msg, b"+/")
                 print(f"  [DEBUG] Got decoded msg: {self.msg!r}")
                 if not self.msg.startswith(
                     b"-----BEGIN RSA PUBLIC KEY-----"
@@ -425,7 +425,9 @@ class Server(KeyedClass):
             message (bytes): Clear text message
         """
         encrypted = rsa.encrypt(message, self.clientpubkey[address[0]])  # type: ignore  # noqa
-        return clientsocket.sendall(b64encode(encrypted) + b"\x04")
+        return clientsocket.sendall(
+            b64encode(encrypted, b"+/") + b"\x04"
+        )
 
     def make_reply(
         self, clientsocket: socket.socket, address: Tuple[str, int]
@@ -543,7 +545,7 @@ class Client(KeyedClass):
                 msg += new_data
                 if data.find(b"\x04") != -1:
                     break
-        return b64decode(msg) if decode else msg
+        return b64decode(msg, b"+/") if decode else msg
 
     def send_enc(self, msg: bytes) -> bytes:
         """
@@ -564,7 +566,7 @@ class Client(KeyedClass):
         if not isinstance(self.serverpubkey, rsa.PublicKey):
             raise TypeError
         enc = rsa.encrypt(msg, self.serverpubkey)
-        self.socket.sendall(b64encode(enc) + b"\x04")
+        self.socket.sendall(b64encode(enc, b"+/") + b"\x04")
         self.logger.info("Decrypting response...")
         return rsa.decrypt(
             self._recv_msg(self.socket, decode=True), self.privkey
@@ -620,7 +622,7 @@ class Client(KeyedClass):
         self.logger.info(
             f"    Sending encrypted message [KEYCHECK] {enc!r}..."
         )
-        self.socket.sendall(b64encode(enc) + b"\x04")
+        self.socket.sendall(b64encode(enc, b"+/") + b"\x04")
         del enc
 
         self.logger.info("    Checking if we receive [PUBKEY]...")
@@ -636,7 +638,7 @@ class Client(KeyedClass):
             f"    Sending publickey {self.pubkey.save_pkcs1('PEM')!r}..."
         )
         self.socket.sendall(
-            b64encode(self.pubkey.save_pkcs1("PEM")) + b"\x04"
+            b64encode(self.pubkey.save_pkcs1("PEM"), b"+/") + b"\x04"
         )
 
         self.logger.info(
