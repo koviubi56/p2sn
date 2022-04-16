@@ -16,6 +16,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import contextlib
+import os
 import socket
 from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
@@ -23,10 +24,20 @@ from collections import namedtuple
 from enum import Enum, auto
 from logging import Logger, basicConfig, getLogger
 from threading import Thread
+import time
 from types import MethodType
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import rsa
+import keyboard
 
 __version__ = "0.2.0"
 __author__ = "Koviubi56"
@@ -188,8 +199,14 @@ class Server(KeyedClass):
     BIND: Union[bytes, Tuple[Any, ...], str, None] = None
     LOGGER: Optional[Logger] = None
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        if_ctrl_c: Literal[
+            "nothing", "self.stop", "os._exit"
+        ] = "os._exit",
+    ) -> None:
         """Make a new Server object."""
+        self.if_ctrl_c = if_ctrl_c
         self.socket = socket.socket(self.FAMILY, self.TYPE)
         self.socket.settimeout(self.TIMEOUT)
         if self.BIND is None:
@@ -238,9 +255,12 @@ class Server(KeyedClass):
         msg = b""
         try:
             data = clientsocket.recv(64_000)
-        except (socket.timeout, TimeoutError):
-            pass
-        except (ConnectionAbortedError, ConnectionResetError):
+        except (
+            ConnectionAbortedError,
+            ConnectionResetError,
+            socket.timeout,
+            TimeoutError,
+        ):
             return Request(
                 NULL,
                 self.privkey,
@@ -463,6 +483,27 @@ class Server(KeyedClass):
         """
         return NotImplemented
 
+    def _ctrl_c_thread(self):
+        while True:
+            time.sleep(1)
+            if keyboard.is_pressed("ctrl+c"):
+                self.logger.info("Received CTRL+C, stopping...")
+                if self.if_ctrl_c == "self.stop":
+                    self.stop()
+                else:
+                    os._exit(1)
+                break
+
+    def make_ctrl_c_thread_if_needed(self) -> None:
+        if self.if_ctrl_c not in {"self.stop", "os._exit"}:
+            return
+        thread = Thread(
+            target=self._ctrl_c_thread,
+            name="Thread-P2SNCTRLC",
+            daemon=True,
+        )
+        thread.start()
+
     def start(self) -> None:
         """Start the server and listen."""
         _assert(
@@ -478,6 +519,8 @@ class Server(KeyedClass):
             ' super().__init__()" at the end',
         )
         self.logger.info("Starting server...")
+        self.logger.info("Starting CTRL+C thread if needed...")
+        self.make_ctrl_c_thread_if_needed()
         self.logger.info(f"Public key (n): {self.pubkey.n!r}")
         self.logger.info(
             f"Server is listening on {self.socket.getsockname()}"

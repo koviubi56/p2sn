@@ -8,7 +8,7 @@ class MyServer(p2sn.Server):
         self, request: p2sn.Request, reply: Callable[[bytes], None]
     ) -> None:
         print(f"{request.address} sent: {request.og_msg.decode()}")
-        reply(b"Hi!")
+        reply(b'Hi! You sent me "' + request.msg + b'"')
 
 
 def main():
