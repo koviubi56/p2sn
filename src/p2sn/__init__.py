@@ -485,10 +485,11 @@ class Server(KeyedClass):
                 if self.if_ctrl_c == "self.stop":
                     self.stop()
                 else:
-                    os._exit(1)
+                    os._exit(1)  # pylint: disable=protected-access
                 break
 
     def make_ctrl_c_thread_if_needed(self) -> None:
+        """Make a thread for handling CTRL+C if needed."""
         if self.if_ctrl_c not in {"self.stop", "os._exit"}:
             return
         thread = Thread(
