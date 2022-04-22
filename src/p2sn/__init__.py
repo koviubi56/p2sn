@@ -38,7 +38,7 @@ from typing import (
 import keyboard
 import rsa
 
-__version__ = "0.2.0"
+__version__ = "0.3.0-beta.2"
 __author__ = "Koviubi56"
 __email__ = "koviubi56@duck.com"
 __license__ = "GNU LGPLv3"
