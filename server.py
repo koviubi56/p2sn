@@ -1,17 +1,14 @@
 import socket
-from typing import Tuple
+from typing import Callable
 import p2sn
 
 
 class MyServer(p2sn.Server):
     def handle(
-        self,
-        clientsocket: socket.socket,
-        address: Tuple[str, int],
-        request: p2sn.Request,
+        self, request: p2sn.Request, reply: Callable[[bytes], None]
     ) -> None:
-        print(f"{address} sent: {request.og_msg.decode()}")
-        self.reply(clientsocket, address, b"Hi!")
+        print(f"{request.address} sent: {request.og_msg.decode()}")
+        reply(b'Hi! You sent me "' + request.msg + b'"')
 
 
 def main() -> None:

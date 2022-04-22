@@ -9,9 +9,9 @@ P2SN is a Peer to Peer, encrypted Socket Network written in python.
 P2SN uses asymmetric/public key encription ([RSA](https://pypi.org/project/rsa/)) for all\* communication between the two peers.
 P2SN uses Base64 (with the '+' and '/' characters) to encode and decode everything\*\*.
 
-\*: Everything, except PUBKEY, pubkey, KEYERROR, and NULL.
+\*: Everything, except PUBKEY, pubkey, ERRORKEY, and NULL.
 
-\*\*: Everything, except PUBKEY, KEYERROR, and NULL
+\*\*: Everything, except PUBKEY, ERRORKEY, and NULL
 
 ## How does it work
 
