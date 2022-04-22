@@ -14,7 +14,7 @@ class MyServer(p2sn.Server):
         self.reply(clientsocket, address, b"Hi!")
 
 
-def main():
+def main() -> None:
     print(f"IP: {socket.gethostbyname(socket.gethostname())}")
     s = MyServer()
     print(f"IP & port: {s.socket.getsockname()}")

@@ -1,7 +1,7 @@
 import p2sn
 
 
-def main():
+def main() -> None:
     c = p2sn.Client()
     c.gen_keys(2048, False)
     if not c.init((input(">>> IP: "), int(input(">>> Port: ")))):
