@@ -74,6 +74,30 @@ class Request:
         KEYCHECK = auto()
         NULL = auto()
 
+    def _handle_msg(self, privkey: rsa.PrivateKey) -> None:
+        try:
+            # By the way there is a 1 in 256^30
+            # chance that the message will start with the
+            # "-----BEGIN RSA PRIVATE KEY-----" header, but it isn't a key.
+            self.msg = b64decode(self.og_msg, b"+/")
+            print(f"  [DEBUG] Got decoded msg: {self.msg!r}")
+            if not self.msg.startswith(
+                b"-----BEGIN RSA PUBLIC KEY-----"
+            ):
+                print("  [DEBUG] Msg isn't a public key")
+                self.msg = rsa.decrypt(self.msg, privkey)
+        except (rsa.DecryptionError, rsa.pkcs1.CryptoError):
+            print(
+                "\n[ERROR] There was an error while decrypting the"
+                " message! The exception will be reraised, but"
+                " **!DO NOT!** share the callstack!"
+            )
+            raise
+        print("  [DEBUG] Decrypted message:", self.msg)
+        if self.msg == KEYCHECK:
+            print("  [DEBUG] Msg is KEYCHECK")
+            self.type = self.Type.KEYCHECK
+
     def __init__(
         self,
         msg: bytes,
@@ -102,28 +126,7 @@ class Request:
         )
         print(f"  [DEBUG] Got type: {self.type!r}")
         if self.type == self.Type.MSG:
-            try:
-                # By the way there is a 1 in 256^30
-                # chance that the message will start with the
-                # "-----BEGIN RSA PRIVATE KEY-----" header, but it isn't a key.
-                self.msg = b64decode(self.og_msg, b"+/")
-                print(f"  [DEBUG] Got decoded msg: {self.msg!r}")
-                if not self.msg.startswith(
-                    b"-----BEGIN RSA PUBLIC KEY-----"
-                ):
-                    print("  [DEBUG] Msg isn't a public key")
-                    self.msg = rsa.decrypt(self.msg, privkey)
-            except (rsa.DecryptionError, rsa.pkcs1.CryptoError):
-                print(
-                    "\n[ERROR] There was an error while decrypting the"
-                    " message! The exception will be reraised, but"
-                    " **!DO NOT!** share the callstack!"
-                )
-                raise
-            print("  [DEBUG] Decrypted message:", self.msg)
-            if self.msg == KEYCHECK:
-                print("  [DEBUG] Msg is KEYCHECK")
-                self.type = self.Type.KEYCHECK
+            self._handle_msg(privkey)
 
     def __repr__(self) -> str:
         """
@@ -312,48 +315,13 @@ class Server(KeyedClass):
             f"Sending server [pubkey] to client ({address})"
         )
         clientsocket.sendall(self.pubkey.save_pkcs1("PEM") + b"\x04")
+
         self.logger.info(
             f"Receiving client ({address}) [KEYCHECK]..."
         )
         r_ = self._recv_msg(clientsocket, address)
-        if r_.type == Request.Type.KEYCHECK:
-            self.logger.info(
-                f"Received [KEYCHECK] from client ({address})"
-            )
-            self.logger.info(
-                f"Sending [PUBKEY] to client ({address})"
-            )
-            clientsocket.sendall(PUBKEY + b"\x04")
-            try:
-                self.logger.info(
-                    f"Receiving and loading client ({address}; {address[0]})"
-                    " [pubkey]"
-                )
-                self.clientpubkey[
-                    address[0]
-                ] = rsa.PublicKey.load_pkcs1(
-                    self._recv_msg(clientsocket, address).msg, "PEM"
-                )
-                self.logger.info(
-                    f"[pubkey]: {self.clientpubkey[address[0]]!r};; n:"
-                    f" {self.clientpubkey[address[0]].n!r}"
-                )
-            except Exception:
-                self.logger.error(
-                    f"Error while loading client ({address}) [pubkey]"
-                )
-                clientsocket.sendall(ERRORKEY + b"\x04")
-                clientsocket.close()
-                return None
-            self.logger.info(
-                f"Sending encrypted KEYCHECK to client ({address})"
-            )
-            self.reply(clientsocket, address, KEYCHECK)
-            self.logger.info(
-                "KEYCHECK sent, keyexchange is completed!"
-            )
-            return True
-        else:
+
+        if r_.type != Request.Type.KEYCHECK:
             self.logger.error(
                 f"Didn't receive keycheck from client ({address!r});"
                 f" got {r_.og_msg!r}"
@@ -361,6 +329,80 @@ class Server(KeyedClass):
             clientsocket.sendall(ERRORKEY + b"\x04")
             clientsocket.close()
             return None
+
+        self.logger.info(
+            f"Received [KEYCHECK] from client ({address})"
+        )
+        self.logger.info(f"Sending [PUBKEY] to client ({address})")
+        clientsocket.sendall(PUBKEY + b"\x04")
+        try:
+            self.logger.info(
+                f"Receiving and loading client ({address}; {address[0]})"
+                " [pubkey]"
+            )
+            self.clientpubkey[address[0]] = rsa.PublicKey.load_pkcs1(
+                self._recv_msg(clientsocket, address).msg, "PEM"
+            )
+            self.logger.info(
+                f"[pubkey]: {self.clientpubkey[address[0]]!r};; n:"
+                f" {self.clientpubkey[address[0]].n!r}"
+            )
+        except Exception:
+            self.logger.error(
+                f"Error while loading client ({address}) [pubkey]"
+            )
+            clientsocket.sendall(ERRORKEY + b"\x04")
+            clientsocket.close()
+            return None
+        self.logger.info(
+            f"Sending encrypted KEYCHECK to client ({address})"
+        )
+        self.reply(clientsocket, address, KEYCHECK)
+        self.logger.info("KEYCHECK sent, keyexchange is completed!")
+        return True
+
+    def _handle_empty(
+        self, received_msg: Request, address: Tuple[str, int]
+    ) -> bool:
+        if received_msg.type == Request.Type.NULL:
+            self.logger.info(
+                f'"Received" [NULL] from client ({address}), terminating'
+                " connection..."
+            )
+            return True
+        with contextlib.suppress(AttributeError):
+            if received_msg.msg == b"":
+                self.logger.info(
+                    f"Received empty message from client ({address}), "
+                    "terminating connection..."
+                )
+                return True
+        return False
+
+    def _handle_msg(
+        self,
+        received_msg: Request,
+        address: Tuple[str, int],
+        clientsocket: socket.socket,
+    ) -> bool:
+        if received_msg.msg == b"":
+            self.logger.info(
+                f"Received empty message from {address}, terminating"
+                " connection..."
+            )
+            return True
+        self.logger.info(f"Received message from {address}")
+        try:
+            self.handle(
+                request=received_msg,
+                reply=self.make_reply(clientsocket, address),
+            )
+        except Exception:
+            self.logger.error(
+                "Error while handling message", exc_info=True
+            )
+            self.reply(clientsocket, address, UNEXPECTEDERROR)
+        return False
 
     def _handle(
         self, clientsocket: socket.socket, address: Tuple[str, int]
@@ -380,19 +422,8 @@ class Server(KeyedClass):
                 f"Receiving message from client ({address})..."
             )
             received_msg = self._recv_msg(clientsocket, address)
-            if received_msg.type == Request.Type.NULL:
-                self.logger.info(
-                    f'"Received" [NULL] from client ({address}), terminating'
-                    " connection..."
-                )
+            if self._handle_empty(received_msg, address):
                 return
-            with contextlib.suppress(AttributeError):
-                if received_msg.msg == b"":
-                    self.logger.info(
-                        f"Received empty message from client ({address}), "
-                        "terminating connection..."
-                    )
-                    return
             self.logger.info(
                 f"Received [{received_msg.type}] {received_msg.og_msg!r} from"
                 f" {address}"
@@ -405,24 +436,10 @@ class Server(KeyedClass):
                         " exchange"
                     )
                     return
-            elif received_msg.type == Request.Type.MSG:
-                if received_msg.msg == b"":
-                    self.logger.info(
-                        f"Received empty message from {address}, terminating"
-                        " connection..."
-                    )
-                    return
-                self.logger.info(f"Received message from {address}")
-                try:
-                    self.handle(
-                        request=received_msg,
-                        reply=self.make_reply(clientsocket, address),
-                    )
-                except Exception:
-                    self.logger.error(
-                        "Error while handling message", exc_info=True
-                    )
-                    self.reply(clientsocket, address, UNEXPECTEDERROR)
+            elif (received_msg.type == Request.Type.MSG) and (
+                self._handle_msg(received_msg, address, clientsocket)
+            ):
+                return
 
     def reply(
         self,
