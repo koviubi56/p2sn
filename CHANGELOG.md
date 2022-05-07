@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## Added
+
+- Added `keyboard` as a requirement [4eb50e9](https://github.com/koviubi56/p2sn/commit/4eb50e96f7d341c04fe9bc72037eb8e4bbbc03b4#diff-4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552R1)
+- Added methods: `Request._handle_msg`, `Server._handle_empty`, and `Server._handle_msg` [b447ee3](https://github.com/koviubi56/p2sn/commit/b447ee3ee5a9af2635b79d8a5727c229541fbdf0)
+
 ## [0.3.0-beta.2] - 2022-04-22
 
 ## Added
