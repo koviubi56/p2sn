@@ -51,6 +51,7 @@ KEYCHECK = b"P2SN:KEYCHECK"
 ERRORKEY = b"P2SN:ERRORKEY"
 UNEXPECTEDERROR = b"P2SN:UNEXPECTEDERROR"
 NULL = b"P2SN:NULL"
+END_OF_MESSAGE = b"\x04"
 
 basicConfig(
     format="[%(levelname)s %(name)s %(asctime)s line: %(lineno)d] %(message)s",
@@ -264,8 +265,8 @@ class Server(KeyedClass):
                 clientsocket=clientsocket,
                 address=address,
             )
-        if data or data.startswith(b"\x04"):
-            new_data = data.split(b"\x04")[0]
+        if data or data.startswith(END_OF_MESSAGE):
+            new_data = data.split(END_OF_MESSAGE)[0]
             msg += new_data
 
         if msg == b"":
@@ -290,7 +291,7 @@ class Server(KeyedClass):
             self.logger.error(
                 f"Error while decrypting and returning request: {er!r}"
             )
-            clientsocket.sendall(ERRORKEY + b"\x04")
+            clientsocket.sendall(ERRORKEY + END_OF_MESSAGE)
             return Request(
                 NULL,
                 self.privkey,
@@ -314,7 +315,9 @@ class Server(KeyedClass):
         self.logger.info(
             f"Sending server [pubkey] to client ({address})"
         )
-        clientsocket.sendall(self.pubkey.save_pkcs1("PEM") + b"\x04")
+        clientsocket.sendall(
+            self.pubkey.save_pkcs1("PEM") + END_OF_MESSAGE
+        )
 
         self.logger.info(
             f"Receiving client ({address}) [KEYCHECK]..."
@@ -326,7 +329,7 @@ class Server(KeyedClass):
                 f"Didn't receive keycheck from client ({address!r});"
                 f" got {r_.og_msg!r}"
             )
-            clientsocket.sendall(ERRORKEY + b"\x04")
+            clientsocket.sendall(ERRORKEY + END_OF_MESSAGE)
             clientsocket.close()
             return None
 
@@ -334,7 +337,7 @@ class Server(KeyedClass):
             f"Received [KEYCHECK] from client ({address})"
         )
         self.logger.info(f"Sending [PUBKEY] to client ({address})")
-        clientsocket.sendall(PUBKEY + b"\x04")
+        clientsocket.sendall(PUBKEY + END_OF_MESSAGE)
         try:
             self.logger.info(
                 f"Receiving and loading client ({address}; {address[0]})"
@@ -351,7 +354,7 @@ class Server(KeyedClass):
             self.logger.error(
                 f"Error while loading client ({address}) [pubkey]"
             )
-            clientsocket.sendall(ERRORKEY + b"\x04")
+            clientsocket.sendall(ERRORKEY + END_OF_MESSAGE)
             clientsocket.close()
             return None
         self.logger.info(
@@ -457,7 +460,7 @@ class Server(KeyedClass):
         """
         encrypted = rsa.encrypt(message, self.clientpubkey[address[0]])  # type: ignore  # noqa
         return clientsocket.sendall(
-            b64encode(encrypted, b"+/") + b"\x04"
+            b64encode(encrypted, b"+/") + END_OF_MESSAGE
         )
 
     def make_reply(
@@ -596,9 +599,9 @@ class Client(KeyedClass):
             if vars().get("data", None) is not None:
                 if not data:
                     break
-                new_data = data.split(b"\x04")[0]
+                new_data = data.split(END_OF_MESSAGE)[0]
                 msg += new_data
-                if data.find(b"\x04") != -1:
+                if data.find(END_OF_MESSAGE) != -1:
                     break
         return b64decode(msg, b"+/") if decode else msg
 
@@ -621,7 +624,7 @@ class Client(KeyedClass):
         if not isinstance(self.serverpubkey, rsa.PublicKey):
             raise TypeError
         enc = rsa.encrypt(msg, self.serverpubkey)
-        self.socket.sendall(b64encode(enc, b"+/") + b"\x04")
+        self.socket.sendall(b64encode(enc, b"+/") + END_OF_MESSAGE)
         self.logger.info("Decrypting response...")
         return rsa.decrypt(
             self._recv_msg(self.socket, decode=True), self.privkey
@@ -659,7 +662,7 @@ class Client(KeyedClass):
 
         self.logger.info("  Key exchange...")
         self.logger.info("    Sending clear text message [PUBKEY]...")
-        self.socket.sendall(PUBKEY + b"\x04")
+        self.socket.sendall(PUBKEY + END_OF_MESSAGE)
 
         self.logger.info("    Loading server public key...")
         try:
@@ -677,7 +680,7 @@ class Client(KeyedClass):
         self.logger.info(
             f"    Sending encrypted message [KEYCHECK] {enc!r}..."
         )
-        self.socket.sendall(b64encode(enc, b"+/") + b"\x04")
+        self.socket.sendall(b64encode(enc, b"+/") + END_OF_MESSAGE)
         del enc
 
         self.logger.info("    Checking if we receive [PUBKEY]...")
@@ -693,7 +696,8 @@ class Client(KeyedClass):
             f"    Sending publickey {self.pubkey.save_pkcs1('PEM')!r}..."
         )
         self.socket.sendall(
-            b64encode(self.pubkey.save_pkcs1("PEM"), b"+/") + b"\x04"
+            b64encode(self.pubkey.save_pkcs1("PEM"), b"+/")
+            + END_OF_MESSAGE
         )
 
         self.logger.info(
