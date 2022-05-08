@@ -15,6 +15,8 @@ P2SN uses Base64 (with the '+' and '/' characters) to encode and decode everythi
 
 ## How does it work
 
+You can read the official P2SN standard in the [`standard.md` file](standard.md).
+
 ### Key exchange
 
 _[Can't see it?](https://gist.github.com/koviubi56/aaa2309ce82123b97e29a70354298b41)_
