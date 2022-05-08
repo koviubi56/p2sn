@@ -42,4 +42,4 @@ Before sending or receiving any messages, the client and the server MUST be conn
 
 The "sender" encrypts the message with the "receiver"'s public key. The "sender" encodes it with P2SN Base64 (specified above) and adds a(n) `\x04` at the end. The "sender" sends this message to the "receiver".
 
-The "receiver" decodes the got message with P2SN Base64 (specified above). The "receiver" removes the `\x04` at the end. The "receiver" decrypts the message with the "sender"'s public key. If the "receiver" is the server, it MUST responde; if it's the client, it MAY responde.
+The "receiver" removes the `\x04` at the end. The "receiver" decodes the got message with P2SN Base64 (specified above). The "receiver" decrypts the message with the "receiver"'s private key. If the "receiver" is the server, it MUST responde; if it's the client, it MAY responde.
