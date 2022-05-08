@@ -202,9 +202,24 @@ class Server(KeyedClass):
         if_ctrl_c: Literal[
             "nothing", "self.stop", "os._exit"
         ] = "os._exit",
+        on_empty: Literal[
+            "reply_empty",
+            "terminate_connection",
+            "continue_as_message",
+        ] = "continue_as_message",
     ) -> None:
-        """Make a new Server object."""
+        """
+        Make a new Server object.
+
+        Args:
+            if_ctrl_c (Literal["nothing", "self.stop", "os._exit"], optional):\
+ What to do if we detect CTRL+C pressed?. Defaults to "os._exit".
+            on_empty (Literal["reply_empty", "terminate_connection",\
+ "continue_as_message"], optional): What to do if a user sends an encrypted\
+ empty message. Defaults to "continue_as_message".
+        """
         self.if_ctrl_c = if_ctrl_c
+        self.on_empty = on_empty
         self.socket = socket.socket(self.FAMILY, self.TYPE)
         self.socket.settimeout(self.TIMEOUT)
         if self.BIND is None:
@@ -376,10 +391,16 @@ class Server(KeyedClass):
         with contextlib.suppress(AttributeError):
             if received_msg.msg == b"":
                 self.logger.info(
-                    f"Received empty message from client ({address}), "
-                    "terminating connection..."
+                    f"Received empty message from client ({address})"
                 )
-                return True
+                if self.on_empty == "reply_empty":
+                    self.reply(
+                        received_msg.clientsocket, address, b""
+                    )
+                    return False
+                if self.on_empty == "terminate_connection":
+                    return True
+        # vvvvvvvvvv if self.on_empty == "continue_as_message":
         return False
 
     def _handle_msg(
@@ -388,12 +409,6 @@ class Server(KeyedClass):
         address: Tuple[str, int],
         clientsocket: socket.socket,
     ) -> bool:
-        if received_msg.msg == b"":
-            self.logger.info(
-                f"Received empty message from {address}, terminating"
-                " connection..."
-            )
-            return True
         self.logger.info(f"Received message from {address}")
         try:
             self.handle(
@@ -427,6 +442,8 @@ class Server(KeyedClass):
             received_msg = self._recv_msg(clientsocket, address)
             if self._handle_empty(received_msg, address):
                 return
+            if not received_msg.msg:
+                continue
             self.logger.info(
                 f"Received [{received_msg.type}] {received_msg.og_msg!r} from"
                 f" {address}"
