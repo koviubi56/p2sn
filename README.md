@@ -1,9 +1,10 @@
 # p2sn
 
 [![CodeQL](https://github.com/koviubi56/p2sn/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/koviubi56/p2sn/actions/workflows/codeql-analysis.yml)
-[![Tests](https://github.com/koviubi56/p2sn/actions/workflows/tests.yml/badge.svg)](https://github.com/koviubi56/p2sn/actions/workflows/tests.yml)
 [![CodeFactor](https://www.codefactor.io/repository/github/koviubi56/p2sn/badge)](https://www.codefactor.io/repository/github/koviubi56/p2sn)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/8425401d1e874be1a4c02b31ab5e48d4)](https://www.codacy.com/gh/koviubi56/p2sn/dashboard?utm_source=github.com&utm_medium=referral&utm_content=koviubi56/p2sn&utm_campaign=Badge_Grade)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/koviubi56/p2sn/main.svg)](https://results.pre-commit.ci/latest/github/koviubi56/p2sn/main)
+[![Build Status](https://app.travis-ci.com/koviubi56/p2sn.svg?branch=main)](https://app.travis-ci.com/koviubi56/p2sn)
 
 P2SN is a Peer to Peer, encrypted Socket Network written in python.
 P2SN uses asymmetric/public key encription ([RSA](https://pypi.org/project/rsa/)) for all\* communication between the two peers.
