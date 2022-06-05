@@ -2,6 +2,7 @@
 CLI for P2SN.
 """
 import argparse
+
 import p2sn
 
 
@@ -23,7 +24,7 @@ def main() -> bytes:
         action="count",
         help="Quiet output",
         dest="q",
-        type=int,
+        default=0,
     )
     argparser.add_argument(
         "--nbits",
@@ -44,7 +45,7 @@ def main() -> bytes:
     client.logger.setLevel(args.q * 10 + 10)
     client.gen_keys(args.nbits, args.accurate)
     client.init((args.ip, args.port))
-    rv = client.make_req(b" ".join(args.msg))
+    rv = client.make_req(" ".join(args.msg).encode("utf-8"))
     print(rv)
     return rv
 

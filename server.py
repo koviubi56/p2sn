@@ -1,5 +1,6 @@
 import socket
 from typing import Callable
+
 import p2sn
 
 
