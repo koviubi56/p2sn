@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - Added `keyboard` as a requirement [4eb50e9](https://github.com/koviubi56/p2sn/commit/4eb50e96f7d341c04fe9bc72037eb8e4bbbc03b4#diff-4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552R1)
-- Added methods: `Request._handle_msg`, `Server._handle_empty`, and `Server._handle_msg` [b447ee3](https://github.com/koviubi56/p2sn/commit/b447ee3ee5a9af2635b79d8a5727c229541fbdf0)
+- Added methods: `Request._handle_msg`, `Server._handle_empty`, and `Server._handle_msg` [b447ee3](https://github.com/koviubi56/p2sn/commit/b447ee3ee5a9af2635b79d8a5727c229541fbdf0); `Server._ctrl_c_thread`, and `Server.make_ctrl_c_thread_if_needed` [5b6dfff](https://github.com/koviubi56/p2sn/commit/5b6dfff29286e72901cb1ca8c815a21dbe3245e2#diff-8740706cc305b0ad918cd3c3385650f61d71d11ce22fabc08f7afa184fae64edR480-R500)
+- Added constant `END_OF_MESSAGE` which is `\x04` [d8fe483](https://github.com/koviubi56/p2sn/commit/d8fe483c9308c46acc3e95bb8e9b0eb9ad4f40f8)
 
 ## [0.3.0-beta.2] - 2022-04-22
 
