@@ -1,4 +1,3 @@
-import socket
 from typing import Callable
 
 import p2sn
@@ -13,14 +12,9 @@ class MyServer(p2sn.Server):
 
 
 def main() -> None:
-    print(f"IP: {socket.gethostbyname(socket.gethostname())}")
     s = MyServer()
-    print(f"IP & port: {s.socket.getsockname()}")
-    print(1)
-    s.gen_keys(2048, False)
-    print(2)
+    s.gen_keys(p2sn.RECOMMENDED_NBITS, p2sn.RECOMMENDED_ACCURACY)
     s.start()
-    print(3)
 
 
 if __name__ == "__main__":

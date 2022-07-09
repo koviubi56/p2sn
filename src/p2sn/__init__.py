@@ -44,6 +44,8 @@ ERRORKEY = b"P2SN:ERRORKEY"
 UNEXPECTEDERROR = b"P2SN:UNEXPECTEDERROR"
 NULL = b"P2SN:NULL"
 END_OF_MESSAGE = b"\x04"
+RECOMMENDED_NBITS = 2048
+RECOMMENDED_ACCURACY = False
 
 basicConfig(
     format="[%(levelname)s %(name)s %(asctime)s line: %(lineno)d] %(message)s",
@@ -710,6 +712,29 @@ class Client(KeyedClass):
         rv = self.send_enc(msg)
         self.logger.info("Got response!")
         return rv
+
+    @classmethod
+    def request(
+        cls, address: Union[Tuple[str, int], str, bytes], msg: bytes
+    ) -> bytes:
+        """
+        Make a request.
+
+        Args:
+            address (Union[Tuple[str, int], str, bytes]): Server's address.
+            msg (bytes): Message to send.
+
+        Raises:
+            RuntimeError: If there was an error while initializing connection.
+
+        Returns:
+            bytes: Response
+        """
+        self = cls()
+        self.gen_keys(RECOMMENDED_NBITS, RECOMMENDED_ACCURACY)
+        if not self.init(address):
+            raise RuntimeError("Cannot initialize connection")
+        return self.make_req(msg)
 
 
 class TestServer(Server):
