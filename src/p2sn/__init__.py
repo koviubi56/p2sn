@@ -1,6 +1,6 @@
 """
 Peer to peer socket network
-Copyright (C) 2021  Koviubi56
+Copyright (C) 2022  Koviubi56
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -34,7 +34,7 @@ __version__ = "0.3.0-beta.2"
 __author__ = "Koviubi56"
 __email__ = "koviubi56@duck.com"
 __license__ = "GNU LGPLv3"
-__copyright__ = "Copyright (C) 2021 Koviubi56"
+__copyright__ = "Copyright (C) 2022 Koviubi56"
 __description__ = "Peer to peer socket network"
 __url__ = "https://github.com/koviubi56/p2sn"
 
