@@ -1,9 +1,9 @@
 import p2sn
 
 
-def main():
+def main() -> None:
     c = p2sn.Client()
-    c.gen_keys(2048, False)
+    c.gen_keys(p2sn.RECOMMENDED_NBITS, p2sn.RECOMMENDED_ACCURACY)
     if not c.init((input(">>> IP: "), int(input(">>> Port: ")))):
         raise RuntimeError("Could not connect to server")
     while True:
