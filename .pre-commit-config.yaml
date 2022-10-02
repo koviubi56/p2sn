@@ -62,10 +62,6 @@ repos:
     hooks:
       - id: setup-cfg-fmt
         args: ["--include-version-classifiers"]
-  - repo: https://github.com/asottile/yesqa
-    rev: v1.4.0
-    hooks:
-      - id: yesqa
   - repo: https://github.com/regebro/pyroma
     rev: "4.0"
     hooks:
