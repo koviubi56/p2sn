@@ -104,9 +104,7 @@ class Request:
                 # "-----BEGIN RSA PRIVATE KEY-----" header, but it isn't a key.
                 self.msg = b64decode(self.og_msg)
                 print(f"  [DEBUG] Got decoded msg: {self.msg!r}")
-                if not self.msg.startswith(
-                    b"-----BEGIN RSA PUBLIC KEY-----"
-                ):
+                if not self.msg.startswith(b"-----BEGIN RSA PUBLIC KEY-----"):
                     print("  [DEBUG] Msg isn't a public key")
                     self.msg = rsa.decrypt(self.msg, privkey)
             except (rsa.DecryptionError, rsa.pkcs1.CryptoError):
@@ -131,7 +129,7 @@ class Request:
         return f"<Request type={self.type!r} msg={self.msg!r}>"
 
 
-class KeyedClass(ABC):
+class KeyedClass:
     """ABC for classes that use/need a public and a private key."""
 
     min_nbits: int = 1024
@@ -167,16 +165,14 @@ class KeyedClass(ABC):
             raise ValueError(
                 f"nbits must be greater than or equal to {self.min_nbits}"
             )
-        self.pubkey, self.privkey = rsa.newkeys(
-            nbits, accurate=accurate
-        )
+        self.pubkey, self.privkey = rsa.newkeys(nbits, accurate=accurate)
 
 
 class VerifyingError(RuntimeError):
     """Verification failed."""
 
 
-class Server(KeyedClass):
+class Server(ABC, KeyedClass):
     """
     This is an abstract class; a subclass must implement the "handle" method.
     A subclass will be able to run a P2SN server.
@@ -295,30 +291,20 @@ class Server(KeyedClass):
         if self.stopped:
             return None
         self.logger.info(f"Received [PUBKEY] from client ({address})")
-        self.logger.info(
-            f"Sending server [pubkey] to client ({address})"
-        )
+        self.logger.info(f"Sending server [pubkey] to client ({address})")
         clientsocket.sendall(self.pubkey.save_pkcs1("PEM") + b"\x04")
-        self.logger.info(
-            f"Receiving client ({address}) [KEYCHECK]..."
-        )
+        self.logger.info(f"Receiving client ({address}) [KEYCHECK]...")
         r_ = self._recv_msg(clientsocket, address)
         if r_.type == Request.Type.KEYCHECK:
-            self.logger.info(
-                f"Received [KEYCHECK] from client ({address})"
-            )
-            self.logger.info(
-                f"Sending [PUBKEY] to client ({address})"
-            )
+            self.logger.info(f"Received [KEYCHECK] from client ({address})")
+            self.logger.info(f"Sending [PUBKEY] to client ({address})")
             clientsocket.sendall(PUBKEY + b"\x04")
             try:
                 self.logger.info(
                     f"Receiving and loading client ({address}; {address[0]})"
                     " [pubkey]"
                 )
-                self.clientpubkey[
-                    address[0]
-                ] = rsa.PublicKey.load_pkcs1(
+                self.clientpubkey[address[0]] = rsa.PublicKey.load_pkcs1(
                     self._recv_msg(clientsocket, address).msg, "PEM"
                 )
                 self.logger.info(
@@ -336,9 +322,7 @@ class Server(KeyedClass):
                 f"Sending encrypted KEYCHECK to client ({address})"
             )
             self.reply(clientsocket, address, KEYCHECK)
-            self.logger.info(
-                "KEYCHECK sent, keyexchange is completed!"
-            )
+            self.logger.info("KEYCHECK sent, keyexchange is completed!")
             return True
         else:
             self.logger.error(
@@ -363,9 +347,7 @@ class Server(KeyedClass):
             return
         self.logger.info(f"New connection from {address}")
         while True:
-            self.logger.info(
-                f"Receiving message from client ({address})..."
-            )
+            self.logger.info(f"Receiving message from client ({address})...")
             received_msg = self._recv_msg(clientsocket, address)
             if received_msg.type == Request.Type.NULL:
                 self.logger.info(
@@ -464,9 +446,7 @@ class Server(KeyedClass):
 
     def start(self) -> None:
         """Start the server and listen."""
-        _assert(
-            self._keyed, "Server must have two keys before starting"
-        )
+        _assert(self._keyed, "Server must have two keys before starting")
         _assert(
             isinstance(getattr(self, "handle", None), MethodType),
             "Server must implement method handle",
@@ -478,9 +458,7 @@ class Server(KeyedClass):
         )
         self.logger.info("Starting server...")
         self.logger.info(f"Public key (n): {self.pubkey.n!r}")
-        self.logger.info(
-            f"Server is listening on {self.socket.getsockname()}"
-        )
+        self.logger.info(f"Server is listening on {self.socket.getsockname()}")
         self.socket.listen(5)
         while not self.stopped:
             try:
@@ -571,9 +549,7 @@ class Client(KeyedClass):
             self._recv_msg(self.socket, decode=True), self.privkey
         )
 
-    def init(
-        self, address: Union[Tuple[str, int], str, bytes]
-    ) -> bool:
+    def init(self, address: Union[Tuple[str, int], str, bytes]) -> bool:
         """
         Initialize connection.
 
@@ -585,9 +561,7 @@ class Client(KeyedClass):
         """
         self.logger.info("Initializing connection...")
         self.initialized = False
-        _assert(
-            self._keyed, "Client must have two keys before starting"
-        )
+        _assert(self._keyed, "Client must have two keys before starting")
 
         self.logger.info(f"  Public key (n): {self.pubkey.n!r}")
         self.logger.info(f"  Connecting to {address!r}...")
@@ -613,9 +587,7 @@ class Client(KeyedClass):
         except OSError:
             self.logger.error("    Server [pubkey] cannot be loaded")
             return False
-        self.logger.info(
-            f"      Got server publickey ({self.serverpubkey.n})"
-        )
+        self.logger.info(f"      Got server publickey ({self.serverpubkey.n})")
 
         enc = rsa.encrypt(KEYCHECK, self.serverpubkey)  # type: ignore
         self.logger.info(
@@ -636,13 +608,9 @@ class Client(KeyedClass):
         self.logger.info(
             f"    Sending publickey {self.pubkey.save_pkcs1('PEM')!r}..."
         )
-        self.socket.sendall(
-            b64encode(self.pubkey.save_pkcs1("PEM")) + b"\x04"
-        )
+        self.socket.sendall(b64encode(self.pubkey.save_pkcs1("PEM")) + b"\x04")
 
-        self.logger.info(
-            "    Checking if we receive encrypted [KEYCHECK]..."
-        )
+        self.logger.info("    Checking if we receive encrypted [KEYCHECK]...")
         __r = self._recv_msg(self.socket, decode=True)
 
         self.logger.info(f"      Received {__r!r}; decrypting...")
@@ -673,9 +641,7 @@ class Client(KeyedClass):
             self.initialized,
             "Client must be initialized using method `init`",
         )
-        _assert(
-            self._keyed, "Client must have two keys before starting"
-        )
+        _assert(self._keyed, "Client must have two keys before starting")
         self.logger.info(f"Sending encrypted message {msg!r}...")
         rv = self.send_enc(msg)
         self.logger.info("Got response!")
