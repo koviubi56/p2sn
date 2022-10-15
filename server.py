@@ -1,28 +1,20 @@
-import socket
-from typing import Tuple
+from typing import Callable
+
 import p2sn
 
 
 class MyServer(p2sn.Server):
     def handle(
-        self,
-        clientsocket: socket.socket,
-        address: Tuple[str, int],
-        request: p2sn.Request,
+        self, request: p2sn.Request, reply: Callable[[bytes], None]
     ) -> None:
-        print(f"{address} sent: {request.og_msg.decode()}")
-        self.reply(clientsocket, address, b"Hi!")
+        print(f"{request.address} sent: {request.og_msg.decode()}")
+        reply(b'Hi! You sent me "' + request.msg + b'"')
 
 
-def main():
-    print(f"IP: {socket.gethostbyname(socket.gethostname())}")
+def main() -> None:
     s = MyServer()
-    print(f"IP & port: {s.socket.getsockname()}")
-    print(1)
-    s.gen_keys(2048, False)
-    print(2)
+    s.gen_keys(p2sn.RECOMMENDED_NBITS, p2sn.RECOMMENDED_ACCURACY)
     s.start()
-    print(3)
 
 
 if __name__ == "__main__":

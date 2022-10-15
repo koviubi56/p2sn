@@ -16,6 +16,8 @@ Note, that we used "it" for the client and the server. It is because we expect t
 
 The server and the client MUST have an RSA public and private key. Those key SHOULD be at least 1024 bits. The server MUST NOT change its public or private key while it is connected to a client. The client MUST NOT change its public or private key while it is connected to a server.
 
+If an unexpected exeption if raised, the server MAY send b"P2SN:UNEXPECTEDERROR" ([UNEXPECTEDERROR]) to the client (so `50 32 53 4e 3a 55 4e 45 58 50 45 43 54 45 44 45 52 52 4f 52`). But if an exception is thrown while receiving/converting/doing something with the client's public key, the server MUST send b"P2SN:ERRORKEY" ([ERRORKEY]) instead (this is REQUIRED, not like the [UNEXPECTEDERROR], `50 32 53 4e 3a 45 52 52 4f 52 4b 45 59`).
+
 ### 1. Connecting
 
 To send messages using P2SN, the client MUST connect to the server.
@@ -40,4 +42,4 @@ Before sending or receiving any messages, the client and the server MUST be conn
 
 The "sender" encrypts the message with the "receiver"'s public key. The "sender" encodes it with P2SN Base64 (specified above) and adds a(n) `\x04` at the end. The "sender" sends this message to the "receiver".
 
-The "receiver" decodes the got message with P2SN Base64 (specified above). The "receiver" removes the `\x04` at the end. The "receiver" decrypts the message with the "sender"'s public key. If the "receiver" is the server, it MUST responde; if it's the client, it MAY responde.
+The "receiver" removes the `\x04` at the end. The "receiver" decodes the got message with P2SN Base64 (specified above). The "receiver" decrypts the message with the "receiver"'s private key. If the "receiver" is the server, it MUST responde; if it's the client, it MAY responde.
