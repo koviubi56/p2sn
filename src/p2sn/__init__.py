@@ -131,7 +131,7 @@ class Request:
         return f"<Request type={self.type!r} msg={self.msg!r}>"
 
 
-class KeyedClass(ABC):
+class KeyedClass:
     """ABC for classes that use/need a public and a private key."""
 
     min_nbits: int = 1024
@@ -174,7 +174,7 @@ class VerifyingError(RuntimeError):
     """Verification failed."""
 
 
-class Server(KeyedClass):
+class Server(ABC, KeyedClass):
     """
     This is an abstract class; a subclass must implement the "handle" method.
     A subclass will be able to run a P2SN server.
