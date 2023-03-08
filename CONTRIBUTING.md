@@ -15,7 +15,6 @@ p2sn is an open source project and we love to receive contributions from our com
 - Fill issue templates.
 - If you are making a big pull request, create an issue first.
 - Read the [code of conduct](CODE_OF_CONDUCT.md).
-- Run tests.
 - Search open **and closed** issues **and** pull requests.
 - Please, **don't** open an issue for questions. Ask it in the discussions tab!
 - Make sure to put an X to the square brackets at the end of the issue, if you read the contributing guidlines, and the code of conduct. **If you don't put an X to all of them, your issue will be closed!**
