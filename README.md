@@ -1,5 +1,7 @@
 # p2sn
 
+# DEPRECATED - Use anything else
+
 [![CodeQL](https://github.com/koviubi56/p2sn/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/koviubi56/p2sn/actions/workflows/codeql-analysis.yml)
 [![CodeFactor](https://www.codefactor.io/repository/github/koviubi56/p2sn/badge)](https://www.codefactor.io/repository/github/koviubi56/p2sn)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/8425401d1e874be1a4c02b31ab5e48d4)](https://www.codacy.com/gh/koviubi56/p2sn/dashboard?utm_source=github.com&utm_medium=referral&utm_content=koviubi56/p2sn&utm_campaign=Badge_Grade)
